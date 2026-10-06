@@ -1,5 +1,5 @@
 // Página MUMA — quiénes somos, origen, pilares, credenciales y cierre
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Camera, Newspaper, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react'
 
@@ -118,50 +118,53 @@ const medios = [
 
 /** Carrusel de noticias — reemplaza el grid de logos */
 function MediosCarrusel() {
-  const [index, setIndex] = useState(0)
-  const [visibles, setVisibles] = useState(3)
+  const trackRef = useRef<HTMLDivElement>(null)
+  const [atStart, setAtStart] = useState(true)
+  const [atEnd, setAtEnd] = useState(false)
   const gap = 24
 
-  const getVisibles = useCallback(() => {
-    if (typeof window === 'undefined') return 3
-    if (window.innerWidth < 640) return 1
-    if (window.innerWidth < 1024) return 2
-    return 3
+  useEffect(() => {
+    const track = trackRef.current
+    if (!track) return
+    const update = () => {
+      setAtStart(track.scrollLeft <= 2)
+      setAtEnd(track.scrollLeft + track.clientWidth >= track.scrollWidth - 2)
+    }
+    update()
+    track.addEventListener('scroll', update, { passive: true })
+    const observer = new ResizeObserver(update)
+    observer.observe(track)
+    return () => {
+      track.removeEventListener('scroll', update)
+      observer.disconnect()
+    }
   }, [])
 
-  useEffect(() => {
-    const onResize = () => {
-      const v = getVisibles()
-      setVisibles(v)
-      setIndex((prev) => Math.min(prev, Math.max(0, medios.length - v)))
-    }
-    onResize()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [getVisibles])
-
-  const maxIndex = Math.max(0, medios.length - visibles)
-  const prev = () => setIndex((i) => Math.max(0, i - 1))
-  const next = () => setIndex((i) => Math.min(maxIndex, i + 1))
-
+  const move = (direction: number) => {
+    const track = trackRef.current
+    const card = track?.firstElementChild as HTMLElement | null
+    if (!track || !card) return
+    track.scrollBy({ left: direction * (card.getBoundingClientRect().width + gap), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  }
+  const prev = () => move(-1)
+  const next = () => move(1)
 
   return (
     <div style={{ padding: '56px 24px 0' }}>
-      <motion.div
-        initial="oculto" whileInView="visible" viewport={{ once: true }} variants={varianteSeccion}
+      <div
         style={{ maxWidth: '1200px', margin: '0 auto' }}
       >
         {/* Header row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <h3 style={{ color: 'var(--color-texto-titulo)', fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
+            <h3 style={{ color: 'var(--color-texto-titulo, #ffffff)', fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>
               MUMA en los medios
             </h3>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               onClick={prev}
-              disabled={index === 0}
+              disabled={atStart}
               aria-label="Anterior"
               style={{
                 background: 'transparent',
@@ -169,9 +172,9 @@ function MediosCarrusel() {
                 color: 'white',
                 width: '42px', height: '42px',
                 borderRadius: '50%',
-                cursor: index === 0 ? 'default' : 'pointer',
+                cursor: atStart ? 'default' : 'pointer',
                 fontSize: '1.1rem',
-                opacity: index === 0 ? 0.2 : 1,
+                opacity: atStart ? 0.2 : 1,
                 transition: '0.3s',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
@@ -180,7 +183,7 @@ function MediosCarrusel() {
             </button>
             <button
               onClick={next}
-              disabled={index >= maxIndex}
+              disabled={atEnd}
               aria-label="Siguiente"
               style={{
                 background: 'transparent',
@@ -188,9 +191,9 @@ function MediosCarrusel() {
                 color: 'white',
                 width: '42px', height: '42px',
                 borderRadius: '50%',
-                cursor: index >= maxIndex ? 'default' : 'pointer',
+                cursor: atEnd ? 'default' : 'pointer',
                 fontSize: '1.1rem',
-                opacity: index >= maxIndex ? 0.2 : 1,
+                opacity: atEnd ? 0.2 : 1,
                 transition: '0.3s',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
@@ -201,23 +204,30 @@ function MediosCarrusel() {
         </div>
 
         {/* Track */}
-        <div style={{ overflow: 'hidden', padding: '10px 0' }}>
+        <div>
           <div
+            ref={trackRef}
+            className="muma-medios-track"
+            tabIndex={0}
+            role="region"
+            aria-label="Noticias de MUMA; desplaza para ver más"
             style={{
               display: 'flex',
               gap: `${gap}px`,
-              transition: 'transform 0.5s ease-in-out',
-              transform: `translateX(-${index * (100 / visibles + gap * 100 / (visibles * 12 * 100))}%)`,
+              overflowX: 'auto',
+              scrollSnapType: 'x mandatory',
+              padding: '10px 0 18px',
             }}
           >
-            {medios.map((noticia, i) => (
+            {[...medios].reverse().map((noticia, i) => (
               <a
                 key={i}
                 href={noticia.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 style={{
-                  minWidth: `calc(${100 / visibles}% - ${gap * (visibles - 1) / visibles}px)`,
+                  scrollSnapAlign: 'start',
+                  flexShrink: 0,
                   background: 'var(--color-fondo-secundario, #111827)',
                   border: '1px solid var(--color-borde-lila, #7c3aed)',
                   borderRadius: '16px',
@@ -227,7 +237,7 @@ function MediosCarrusel() {
                   transition: 'box-shadow 0.3s, transform 0.3s',
                   overflow: 'hidden',
                 }}
-                className="noticia-card-hover"
+                className="muma-medios-card noticia-card-hover"
               >
                 {/* Image */}
                 <div style={{ height: '180px', position: 'relative', overflow: 'hidden' }}>
@@ -300,10 +310,15 @@ function MediosCarrusel() {
             Ver todas las noticias <ArrowRight size={14} />
           </a>
         </div>
-      </motion.div>
+      </div>
 
       {/* Hover style for cards */}
       <style>{`
+        .muma-medios-card { flex: 0 0 calc((100% - 48px) / 3); min-width: 0; }
+        .muma-medios-track { scrollbar-color: #1fe1a7 #111827; scrollbar-width: thin; }
+        .muma-medios-track:focus-visible, .muma-medios-card:focus-visible { outline: 2px solid #1fe1a7; outline-offset: 3px; }
+        @media (max-width: 1024px) { .muma-medios-card { flex-basis: calc((100% - 24px) / 2); } }
+        @media (max-width: 640px) { .muma-medios-card { flex-basis: 100%; } }
         .noticia-card-hover:hover {
           box-shadow: 0 0 25px rgba(168, 85, 247, 0.2);
           transform: translateY(-5px);
