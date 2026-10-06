@@ -35,9 +35,9 @@ const medios = [
       </div>
 
       <div class="carrusel-window">
-        <div id="carruselTrack" class="carrusel-track">
-          {medios.map((noticia) => (
-            <a href={noticia.url} target="_blank" class="noticia-card">
+        <div id="carruselTrack" class="carrusel-track" tabindex="0" role="region" aria-label="Noticias de MUMA; desplaza para ver más">
+          {[...medios].reverse().map((noticia) => (
+            <a href={noticia.url} target="_blank" rel="noopener noreferrer" class="noticia-card">
               <div class="img-container">
                 <img src={noticia.img} alt={noticia.titulo} loading="lazy" />
                 <span class="año-tag">{noticia.año}</span>
@@ -58,8 +58,8 @@ const medios = [
 <style>
   .noticias-section {
     padding: 80px 20px;
-    background: var(--color-fondo-base);
-    border-top: 2px solid var(--color-borde-lila);
+    background: var(--color-fondo-base, #050505);
+    border-top: 2px solid var(--color-borde-lila, #7c3aed);
   }
   .container {
     max-width: 1200px;
@@ -70,6 +70,8 @@ const medios = [
     justify-content: space-between;
     align-items: center;
     margin-bottom: 40px;
+    flex-wrap: wrap;
+    gap: 16px;
   }
   .title-group {
     display: flex;
@@ -77,15 +79,15 @@ const medios = [
     gap: 15px;
   }
   .title-group h2 {
-    color: var(--color-texto-titulo);
-    font-size: 2rem;
+    color: var(--color-texto-titulo, #ffffff);
+    font-size: clamp(1.4rem, 4vw, 2rem);
     margin: 0;
   }
   .icon-news { font-size: 2rem; }
   
   .control-btn {
     background: transparent;
-    border: 1px solid var(--color-borde-lila);
+    border: 1px solid var(--color-borde-lila, #7c3aed);
     color: white;
     width: 45px;
     height: 45px;
@@ -95,7 +97,7 @@ const medios = [
     transition: 0.3s;
   }
   .control-btn:hover:not(:disabled) {
-    background: var(--color-borde-lila);
+    background: var(--color-borde-lila, #7c3aed);
     color: black;
   }
   .control-btn:disabled {
@@ -103,17 +105,23 @@ const medios = [
     cursor: default;
   }
 
-  .carrusel-window { overflow: hidden; padding: 10px 0; }
+  .carrusel-window { padding: 10px 0; }
   .carrusel-track {
     display: flex;
     gap: 24px;
-    transition: transform 0.5s ease-in-out;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-color: #1fe1a7 #111827;
+    scrollbar-width: thin;
+    padding-bottom: 18px;
   }
 
   .noticia-card {
-    min-width: calc(33.333% - 16px);
-    background: var(--color-fondo-secundario);
-    border: 1px solid var(--color-borde-lila);
+    flex: 0 0 calc((100% - 48px) / 3);
+    min-width: 0;
+    scroll-snap-align: start;
+    background: var(--color-fondo-secundario, #111827);
+    border: 1px solid var(--color-borde-lila, #7c3aed);
     border-radius: 16px;
     text-decoration: none;
     display: flex;
@@ -131,56 +139,45 @@ const medios = [
     position: absolute; top: 12px; left: 12px;
     background: rgba(11, 17, 23, 0.8);
     padding: 2px 10px; border-radius: 6px; font-size: 10px;
-    color: var(--color-marca-principal);
-    border: 1px solid var(--color-borde-lila);
+    color: var(--color-marca-principal, #1fe1a7);
+    border: 1px solid var(--color-borde-lila, #7c3aed);
     font-weight: bold;
   }
   
   .card-content { padding: 20px; flex-grow: 1; display: flex; flex-direction: column; }
-  .medio-name { font-size: 10px; color: var(--color-marca-principal); font-weight: 800; text-transform: uppercase; margin-bottom: 8px; }
-  .noticia-title { color: var(--color-texto-titulo); font-size: 1rem; margin: 0 0 15px 0; line-height: 1.4; }
-  .leer-mas { margin-top: auto; color: var(--color-marca-principal); font-size: 12px; font-weight: bold; }
+  .medio-name { font-size: 10px; color: var(--color-marca-principal, #1fe1a7); font-weight: 800; text-transform: uppercase; margin-bottom: 8px; }
+  .noticia-title { color: var(--color-texto-titulo, #ffffff); font-size: 1rem; margin: 0 0 15px 0; line-height: 1.4; }
+  .leer-mas { margin-top: auto; color: var(--color-marca-principal, #1fe1a7); font-size: 12px; font-weight: bold; }
 
-  @media (max-width: 1024px) { .noticia-card { min-width: calc(50% - 12px); } }
-  @media (max-width: 640px) { .noticia-card { min-width: 100%; } }
+  @media (max-width: 1024px) { .noticia-card { flex-basis: calc((100% - 24px) / 2); } }
+  @media (max-width: 640px) { .noticia-card { flex-basis: 100%; } }
 </style>
 <script>
   function setupCarrusel() {
-    // Usamos 'as' para castear los tipos de los elementos del DOM
     const track = document.getElementById('carruselTrack');
-    
     const prevBtn = document.getElementById('prevBtn') as HTMLButtonElement | null;
     const nextBtn = document.getElementById('nextBtn') as HTMLButtonElement | null;
-
-    // Verificación de seguridad
-    if (!track || !prevBtn || !nextBtn) return;
-
-    let index = 0;
-
-    function update() {
-      // Validamos que track, prevBtn y nextBtn no sean null para TS
-      if (!track || !prevBtn || !nextBtn) return;
-
-      const firstCard = track.firstElementChild as HTMLElement | null;
-      if (!firstCard) return;
-      
-      const cardWidth = firstCard.offsetWidth + 24; 
-      
-      // Acceso seguro a style
-      track.style.transform = `translateX(-${index * cardWidth}px)`;
-      
-      prevBtn.disabled = index === 0;
-      
-      const visibles = window.innerWidth < 640 ? 1 : window.innerWidth < 1024 ? 2 : 3;
-      nextBtn.disabled = index >= track.children.length - visibles;
-    }
-
-    nextBtn.addEventListener('click', () => { index++; update(); });
-    prevBtn.addEventListener('click', () => { index--; update(); });
-    window.addEventListener('resize', update);
-    
+    if (!track || !prevBtn || !nextBtn || track.dataset.ready) return;
+    track.dataset.ready = 'true';
+    const update = () => {
+      prevBtn.disabled = track.scrollLeft <= 2;
+      nextBtn.disabled = track.scrollLeft + track.clientWidth >= track.scrollWidth - 2;
+    };
+    const move = (direction: number) => {
+      const card = track.firstElementChild as HTMLElement | null;
+      if (!card) return;
+      track.scrollBy({ left: direction * (card.getBoundingClientRect().width + 24), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    };
+    nextBtn.addEventListener('click', () => move(1));
+    prevBtn.addEventListener('click', () => move(-1));
+    track.addEventListener('scroll', update, { passive: true });
+    new ResizeObserver(update).observe(track);
     update();
   }
-
-  document.addEventListener('DOMContentLoaded', setupCarrusel);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupCarrusel, { once: true });
+  } else {
+    setupCarrusel();
+  }
+  document.addEventListener('astro:page-load', setupCarrusel);
 </script>
